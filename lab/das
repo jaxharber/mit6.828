@@ -1,0 +1,1766 @@
+[1mdiff --git a/GNUmakefile b/GNUmakefile[m
+[1mindex c7e8242..2b85d1d 100644[m
+[1m--- a/GNUmakefile[m
+[1m+++ b/GNUmakefile[m
+[36m@@ -141,6 +141,7 @@[m [minclude boot/Makefrag[m
+ include kern/Makefrag[m
+ include lib/Makefrag[m
+ include user/Makefrag[m
+[32m+[m[32minclude fs/Makefrag[m
+ [m
+ [m
+ CPUS ?= 1[m
+[36m@@ -149,6 +150,8 @@[m [mQEMUOPTS = -drive file=$(OBJDIR)/kern/kernel.img,index=0,media=disk,format=raw -[m
+ QEMUOPTS += $(shell if $(QEMU) -nographic -help | grep -q '^-D '; then echo '-D qemu.log'; fi)[m
+ IMAGES = $(OBJDIR)/kern/kernel.img[m
+ QEMUOPTS += -smp $(CPUS)[m
+[32m+[m[32mQEMUOPTS += -drive file=$(OBJDIR)/fs/fs.img,index=1,media=disk,format=raw[m
+[32m+[m[32mIMAGES += $(OBJDIR)/fs/fs.img[m
+ QEMUOPTS += $(QEMUEXTRA)[m
+ [m
+ .gdbinit: .gdbinit.tmpl[m
+[1mdiff --git a/conf/lab.mk b/conf/lab.mk[m
+[1mindex 74db46c..428f188 100644[m
+[1m--- a/conf/lab.mk[m
+[1m+++ b/conf/lab.mk[m
+[36m@@ -1,2 +1,2 @@[m
+[31m-LAB=4[m
+[31m-PACKAGEDATE=Mon Oct 8 21:31:51 PDT 2018[m
+[32m+[m[32mLAB=5[m
+[32m+[m[32mPACKAGEDATE=Wed Oct 24 20:44:37 EDT 2018[m
+[1mdiff --git a/fs/Makefrag b/fs/Makefrag[m
+[1mnew file mode 100644[m
+[1mindex 0000000..748e065[m
+[1m--- /dev/null[m
+[1m+++ b/fs/Makefrag[m
+[36m@@ -0,0 +1,77 @@[m
+[32m+[m
+[32m+[m[32mOBJDIRS += fs[m
+[32m+[m
+[32m+[m[32mFSOFILES := 		$(OBJDIR)/fs/ide.o \[m
+[32m+[m			[32m$(OBJDIR)/fs/bc.o \[m
+[32m+[m			[32m$(OBJDIR)/fs/fs.o \[m
+[32m+[m			[32m$(OBJDIR)/fs/serv.o \[m
+[32m+[m			[32m$(OBJDIR)/fs/test.o \[m
+[32m+[m
+[32m+[m[32mUSERAPPS := 		$(OBJDIR)/user/init[m
+[32m+[m
+[32m+[m[32mFSIMGTXTFILES :=	fs/newmotd \[m
+[32m+[m			[32mfs/motd[m
+[32m+[m
+[32m+[m
+[32m+[m[32mUSERAPPS :=		$(USERAPPS) \[m
+[32m+[m			[32m$(OBJDIR)/user/cat \[m
+[32m+[m			[32m$(OBJDIR)/user/echo \[m
+[32m+[m			[32m$(OBJDIR)/user/init \[m
+[32m+[m			[32m$(OBJDIR)/user/ls \[m
+[32m+[m			[32m$(OBJDIR)/user/lsfd \[m
+[32m+[m			[32m$(OBJDIR)/user/num \[m
+[32m+[m			[32m$(OBJDIR)/user/forktree \[m
+[32m+[m			[32m$(OBJDIR)/user/primes \[m
+[32m+[m			[32m$(OBJDIR)/user/primespipe \[m
+[32m+[m			[32m$(OBJDIR)/user/sh \[m
+[32m+[m			[32m$(OBJDIR)/user/testfdsharing \[m
+[32m+[m			[32m$(OBJDIR)/user/testkbd \[m
+[32m+[m			[32m$(OBJDIR)/user/testpipe \[m
+[32m+[m			[32m$(OBJDIR)/user/testpteshare \[m
+[32m+[m			[32m$(OBJDIR)/user/testshell \[m
+[32m+[m			[32m$(OBJDIR)/user/hello \[m
+[32m+[m			[32m$(OBJDIR)/user/faultio \[m
+[32m+[m
+[32m+[m[32mFSIMGTXTFILES :=	$(FSIMGTXTFILES) \[m
+[32m+[m			[32mfs/lorem \[m
+[32m+[m			[32mfs/script \[m
+[32m+[m			[32mfs/testshell.key \[m
+[32m+[m			[32mfs/testshell.sh[m
+[32m+[m
+[32m+[m
+[32m+[m[32mFSIMGFILES := $(FSIMGTXTFILES) $(USERAPPS)[m
+[32m+[m
+[32m+[m[32m$(OBJDIR)/fs/%.o: fs/%.c fs/fs.h inc/lib.h $(OBJDIR)/.vars.USER_CFLAGS[m
+[32m+[m	[32m@echo + cc[USER] $<[m
+[32m+[m	[32m@mkdir -p $(@D)[m
+[32m+[m	[32m$(V)$(CC) -nostdinc $(USER_CFLAGS) -c -o $@ $<[m
+[32m+[m
+[32m+[m[32m$(OBJDIR)/fs/fs: $(FSOFILES) $(OBJDIR)/lib/entry.o $(OBJDIR)/lib/libjos.a user/user.ld[m
+[32m+[m	[32m@echo + ld $@[m
+[32m+[m	[32m$(V)mkdir -p $(@D)[m
+[32m+[m	[32m$(V)$(LD) -o $@ $(ULDFLAGS) $(LDFLAGS) -nostdlib \[m
+[32m+[m		[32m$(OBJDIR)/lib/entry.o $(FSOFILES) \[m
+[32m+[m		[32m-L$(OBJDIR)/lib -ljos $(GCC_LIB)[m
+[32m+[m	[32m$(V)$(OBJDUMP) -S $@ >$@.asm[m
+[32m+[m
+[32m+[m[32m# How to build the file system image[m
+[32m+[m[32m$(OBJDIR)/fs/fsformat: fs/fsformat.c[m
+[32m+[m	[32m@echo + mk $(OBJDIR)/fs/fsformat[m
+[32m+[m	[32m$(V)mkdir -p $(@D)[m
+[32m+[m	[32m$(V)$(NCC) $(NATIVE_CFLAGS) -o $(OBJDIR)/fs/fsformat fs/fsformat.c[m
+[32m+[m
+[32m+[m[32m$(OBJDIR)/fs/clean-fs.img: $(OBJDIR)/fs/fsformat $(FSIMGFILES)[m
+[32m+[m	[32m@echo + mk $(OBJDIR)/fs/clean-fs.img[m
+[32m+[m	[32m$(V)mkdir -p $(@D)[m
+[32m+[m	[32m$(V)$(OBJDIR)/fs/fsformat $(OBJDIR)/fs/clean-fs.img 1024 $(FSIMGFILES)[m
+[32m+[m
+[32m+[m[32m$(OBJDIR)/fs/fs.img: $(OBJDIR)/fs/clean-fs.img[m
+[32m+[m	[32m@echo + cp $(OBJDIR)/fs/clean-fs.img $@[m
+[32m+[m	[32m$(V)cp $(OBJDIR)/fs/clean-fs.img $@[m
+[32m+[m
+[32m+[m[32mall: $(OBJDIR)/fs/fs.img[m
+[32m+[m
+[32m+[m[32m#all: $(addsuffix .sym, $(USERAPPS))[m
+[32m+[m
+[32m+[m[32m#all: $(addsuffix .asm, $(USERAPPS))[m
+[32m+[m
+[1mdiff --git a/fs/bc.c b/fs/bc.c[m
+[1mnew file mode 100644[m
+[1mindex 0000000..e3922c4[m
+[1m--- /dev/null[m
+[1m+++ b/fs/bc.c[m
+[36m@@ -0,0 +1,151 @@[m
+[32m+[m
+[32m+[m[32m#include "fs.h"[m
+[32m+[m
+[32m+[m[32m// Return the virtual address of this disk block.[m
+[32m+[m[32mvoid*[m
+[32m+[m[32mdiskaddr(uint32_t blockno)[m
+[32m+[m[32m{[m
+[32m+[m	[32mif (blockno == 0 || (super && blockno >= super->s_nblocks))[m
+[32m+[m		[32mpanic("bad block number %08x in diskaddr", blockno);[m
+[32m+[m	[32mreturn (char*) (DISKMAP + blockno * BLKSIZE);[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m// Is this virtual address mapped?[m
+[32m+[m[32mbool[m
+[32m+[m[32mva_is_mapped(void *va)[m
+[32m+[m[32m{[m
+[32m+[m	[32mreturn (uvpd[PDX(va)] & PTE_P) && (uvpt[PGNUM(va)] & PTE_P);[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m// Is this virtual address dirty?[m
+[32m+[m[32mbool[m
+[32m+[m[32mva_is_dirty(void *va)[m
+[32m+[m[32m{[m
+[32m+[m	[32mreturn (uvpt[PGNUM(va)] & PTE_D) != 0;[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m// Fault any disk block that is read in to memory by[m
+[32m+[m[32m// loading it from disk.[m
+[32m+[m[32mstatic void[m
+[32m+[m[32mbc_pgfault(struct UTrapframe *utf)[m
+[32m+[m[32m{[m
+[32m+[m	[32mvoid *addr = (void *) utf->utf_fault_va;[m
+[32m+[m	[32muint32_t blockno = ((uint32_t)addr - DISKMAP) / BLKSIZE;[m
+[32m+[m	[32mint r;[m
+[32m+[m
+[32m+[m	[32m// Check that the fault was within the block cache region[m
+[32m+[m	[32mif (addr < (void*)DISKMAP || addr >= (void*)(DISKMAP + DISKSIZE))[m
+[32m+[m		[32mpanic("page fault in FS: eip %08x, va %08x, err %04x",[m
+[32m+[m		[32m      utf->utf_eip, addr, utf->utf_err);[m
+[32m+[m
+[32m+[m	[32m// Sanity check the block number.[m
+[32m+[m	[32mif (super && blockno >= super->s_nblocks)[m
+[32m+[m		[32mpanic("reading non-existent block %08x\n", blockno);[m
+[32m+[m
+[32m+[m	[32m// Allocate a page in the disk map region, read the contents[m
+[32m+[m	[32m// of the block from the disk into that page.[m
+[32m+[m	[32m// Hint: first round addr to page boundary. fs/ide.c has code to read[m
+[32m+[m	[32m// the disk.[m
+[32m+[m	[32m//[m
+[32m+[m	[32m// LAB 5: you code here:[m
+[32m+[m
+[32m+[m	[32m// Clear the dirty bit for the disk block page since we just read the[m
+[32m+[m	[32m// block from disk[m
+[32m+[m	[32mif ((r = sys_page_map(0, addr, 0, addr, uvpt[PGNUM(addr)] & PTE_SYSCALL)) < 0)[m
+[32m+[m		[32mpanic("in bc_pgfault, sys_page_map: %e", r);[m
+[32m+[m
+[32m+[m	[32m// Check that the block we read was allocated. (exercise for[m
+[32m+[m	[32m// the reader: why do we do this *after* reading the block[m
+[32m+[m	[32m// in?)[m
+[32m+[m	[32mif (bitmap && block_is_free(blockno))[m
+[32m+[m		[32mpanic("reading free block %08x\n", blockno);[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m// Flush the contents of the block containing VA out to disk if[m
+[32m+[m[32m// necessary, then clear the PTE_D bit using sys_page_map.[m
+[32m+[m[32m// If the block is not in the block cache or is not dirty, does[m
+[32m+[m[32m// nothing.[m
+[32m+[m[32m// Hint: Use va_is_mapped, va_is_dirty, and ide_write.[m
+[32m+[m[32m// Hint: Use the PTE_SYSCALL constant when calling sys_page_map.[m
+[32m+[m[32m// Hint: Don't forget to round addr down.[m
+[32m+[m[32mvoid[m
+[32m+[m[32mflush_block(void *addr)[m
+[32m+[m[32m{[m
+[32m+[m	[32muint32_t blockno = ((uint32_t)addr - DISKMAP) / BLKSIZE;[m
+[32m+[m
+[32m+[m	[32mif (addr < (void*)DISKMAP || addr >= (void*)(DISKMAP + DISKSIZE))[m
+[32m+[m		[32mpanic("flush_block of bad va %08x", addr);[m
+[32m+[m
+[32m+[m	[32m// LAB 5: Your code here.[m
+[32m+[m	[32mpanic("flush_block not implemented");[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m// Test that the block cache works, by smashing the superblock and[m
+[32m+[m[32m// reading it back.[m
+[32m+[m[32mstatic void[m
+[32m+[m[32mcheck_bc(void)[m
+[32m+[m[32m{[m
+[32m+[m	[32mstruct Super backup;[m
+[32m+[m
+[32m+[m	[32m// back up super block[m
+[32m+[m	[32mmemmove(&backup, diskaddr(1), sizeof backup);[m
+[32m+[m
+[32m+[m	[32m// smash it[m
+[32m+[m	[32mstrcpy(diskaddr(1), "OOPS!\n");[m
+[32m+[m	[32mflush_block(diskaddr(1));[m
+[32m+[m	[32massert(va_is_mapped(diskaddr(1)));[m
+[32m+[m	[32massert(!va_is_dirty(diskaddr(1)));[m
+[32m+[m
+[32m+[m	[32m// clear it out[m
+[32m+[m	[32msys_page_unmap(0, diskaddr(1));[m
+[32m+[m	[32massert(!va_is_mapped(diskaddr(1)));[m
+[32m+[m
+[32m+[m	[32m// read it back in[m
+[32m+[m	[32massert(strcmp(diskaddr(1), "OOPS!\n") == 0);[m
+[32m+[m
+[32m+[m	[32m// fix it[m
+[32m+[m	[32mmemmove(diskaddr(1), &backup, sizeof backup);[m
+[32m+[m	[32mflush_block(diskaddr(1));[m
+[32m+[m
+[32m+[m	[32m// Now repeat the same experiment, but pass an unaligned address to[m
+[32m+[m	[32m// flush_block.[m
+[32m+[m
+[32m+[m	[32m// back up super block[m
+[32m+[m	[32mmemmove(&backup, diskaddr(1), sizeof backup);[m
+[32m+[m
+[32m+[m	[32m// smash it[m
+[32m+[m	[32mstrcpy(diskaddr(1), "OOPS!\n");[m
+[32m+[m
+[32m+[m	[32m// Pass an unaligned address to flush_block.[m
+[32m+[m	[32mflush_block(diskaddr(1) + 20);[m
+[32m+[m	[32massert(va_is_mapped(diskaddr(1)));[m
+[32m+[m
+[32m+[m	[32m// Skip the !va_is_dirty() check because it makes the bug somewhat[m
+[32m+[m	[32m// obscure and hence harder to debug.[m
+[32m+[m	[32m//assert(!va_is_dirty(diskaddr(1)));[m
+[32m+[m
+[32m+[m	[32m// clear it out[m
+[32m+[m	[32msys_page_unmap(0, diskaddr(1));[m
+[32m+[m	[32massert(!va_is_mapped(diskaddr(1)));[m
+[32m+[m
+[32m+[m	[32m// read it back in[m
+[32m+[m	[32massert(strcmp(diskaddr(1), "OOPS!\n") == 0);[m
+[32m+[m
+[32m+[m	[32m// fix it[m
+[32m+[m	[32mmemmove(diskaddr(1), &backup, sizeof backup);[m
+[32m+[m	[32mflush_block(diskaddr(1));[m
+[32m+[m
+[32m+[m	[32mcprintf("block cache is good\n");[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32mvoid[m
+[32m+[m[32mbc_init(void)[m
+[32m+[m[32m{[m
+[32m+[m	[32mstruct Super super;[m
+[32m+[m	[32mset_pgfault_handler(bc_pgfault);[m
+[32m+[m	[32mcheck_bc();[m
+[32m+[m
+[32m+[m	[32m// cache the super block by reading it once[m
+[32m+[m	[32mmemmove(&super, diskaddr(1), sizeof super);[m
+[32m+[m[32m}[m
+[32m+[m
+[1mdiff --git a/fs/fs.c b/fs/fs.c[m
+[1mnew file mode 100644[m
+[1mindex 0000000..45ecaf8[m
+[1m--- /dev/null[m
+[1m+++ b/fs/fs.c[m
+[36m@@ -0,0 +1,456 @@[m
+[32m+[m[32m#include <inc/string.h>[m
+[32m+[m[32m#include <inc/partition.h>[m
+[32m+[m
+[32m+[m[32m#include "fs.h"[m
+[32m+[m
+[32m+[m[32m// --------------------------------------------------------------[m
+[32m+[m[32m// Super block[m
+[32m+[m[32m// --------------------------------------------------------------[m
+[32m+[m
+[32m+[m[32m// Validate the file system super-block.[m
+[32m+[m[32mvoid[m
+[32m+[m[32mcheck_super(void)[m
+[32m+[m[32m{[m
+[32m+[m	[32mif (super->s_magic != FS_MAGIC)[m
+[32m+[m		[32mpanic("bad file system magic number");[m
+[32m+[m
+[32m+[m	[32mif (super->s_nblocks > DISKSIZE/BLKSIZE)[m
+[32m+[m		[32mpanic("file system is too large");[m
+[32m+[m
+[32m+[m	[32mcprintf("superblock is good\n");[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m// --------------------------------------------------------------[m
+[32m+[m[32m// Free block bitmap[m
+[32m+[m[32m// --------------------------------------------------------------[m
+[32m+[m
+[32m+[m[32m// Check to see if the block bitmap indicates that block 'blockno' is free.[m
+[32m+[m[32m// Return 1 if the block is free, 0 if not.[m
+[32m+[m[32mbool[m
+[32m+[m[32mblock_is_free(uint32_t blockno)[m
+[32m+[m[32m{[m
+[32m+[m	[32mif (super == 0 || blockno >= super->s_nblocks)[m
+[32m+[m		[32mreturn 0;[m
+[32m+[m	[32mif (bitmap[blockno / 32] & (1 << (blockno % 32)))[m
+[32m+[m		[32mreturn 1;[m
+[32m+[m	[32mreturn 0;[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m// Mark a block free in the bitmap[m
+[32m+[m[32mvoid[m
+[32m+[m[32mfree_block(uint32_t blockno)[m
+[32m+[m[32m{[m
+[32m+[m	[32m// Blockno zero is the null pointer of block numbers.[m
+[32m+[m	[32mif (blockno == 0)[m
+[32m+[m		[32mpanic("attempt to free zero block");[m
+[32m+[m	[32mbitmap[blockno/32] |= 1<<(blockno%32);[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m// Search the bitmap for a free block and allocate it.  When you[m
+[32m+[m[32m// allocate a block, immediately flush the changed bitmap block[m
+[32m+[m[32m// to disk.[m
+[32m+[m[32m//[m
+[32m+[m[32m// Return block number allocated on success,[m
+[32m+[m[32m// -E_NO_DISK if we are out of blocks.[m
+[32m+[m[32m//[m
+[32m+[m[32m// Hint: use free_block as an example for manipulating the bitmap.[m
+[32m+[m[32mint[m
+[32m+[m[32malloc_block(void)[m
+[32m+[m[32m{[m
+[32m+[m	[32m// The bitmap consists of one or more blocks.  A single bitmap block[m
+[32m+[m	[32m// contains the in-use bits for BLKBITSIZE blocks.  There are[m
+[32m+[m	[32m// super->s_nblocks blocks in the disk altogether.[m
+[32m+[m
+[32m+[m	[32m// LAB 5: Your code here.[m
+[32m+[m	[32mpanic("alloc_block not implemented");[m
+[32m+[m	[32mreturn -E_NO_DISK;[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m// Validate the file system bitmap.[m
+[32m+[m[32m//[m
+[32m+[m[32m// Check that all reserved blocks -- 0, 1, and the bitmap blocks themselves --[m
+[32m+[m[32m// are all marked as in-use.[m
+[32m+[m[32mvoid[m
+[32m+[m[32mcheck_bitmap(void)[m
+[32m+[m[32m{[m
+[32m+[m	[32muint32_t i;[m
+[32m+[m
+[32m+[m	[32m// Make sure all bitmap blocks are marked in-use[m
+[32m+[m	[32mfor (i = 0; i * BLKBITSIZE < super->s_nblocks; i++)[m
+[32m+[m		[32massert(!block_is_free(2+i));[m
+[32m+[m
+[32m+[m	[32m// Make sure the reserved and root blocks are marked in-use.[m
+[32m+[m	[32massert(!block_is_free(0));[m
+[32m+[m	[32massert(!block_is_free(1));[m
+[32m+[m
+[32m+[m	[32mcprintf("bitmap is good\n");[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m// --------------------------------------------------------------[m
+[32m+[m[32m// File system structures[m
+[32m+[m[32m// --------------------------------------------------------------[m
+[32m+[m
+[32m+[m
+[32m+[m
+[32m+[m[32m// Initialize the file system[m
+[32m+[m[32mvoid[m
+[32m+[m[32mfs_init(void)[m
+[32m+[m[32m{[m
+[32m+[m	[32mstatic_assert(sizeof(struct File) == 256);[m
+[32m+[m
+[32m+[m	[32m// Find a JOS disk.  Use the second IDE disk (number 1) if available[m
+[32m+[m	[32mif (ide_probe_disk1())[m
+[32m+[m		[32mide_set_disk(1);[m
+[32m+[m	[32melse[m
+[32m+[m		[32mide_set_disk(0);[m
+[32m+[m	[32mbc_init();[m
+[32m+[m
+[32m+[m	[32m// Set "super" to point to the super block.[m
+[32m+[m	[32msuper = diskaddr(1);[m
+[32m+[m	[32mcheck_super();[m
+[32m+[m
+[32m+[m	[32m// Set "bitmap" to the beginning of the first bitmap block.[m
+[32m+[m	[32mbitmap = diskaddr(2);[m
+[32m+[m	[32mcheck_bitmap();[m
+[32m+[m[41m	[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m// Find the disk block number slot for the 'filebno'th block in file 'f'.[m
+[32m+[m[32m// Set '*ppdiskbno' to point to that slot.[m
+[32m+[m[32m// The slot will be one of the f->f_direct[] entries,[m
+[32m+[m[32m// or an entry in the indirect block.[m
+[32m+[m[32m// When 'alloc' is set, this function will allocate an indirect block[m
+[32m+[m[32m// if necessary.[m
+[32m+[m[32m//[m
+[32m+[m[32m// Returns:[m
+[32m+[m[32m//	0 on success (but note that *ppdiskbno might equal 0).[m
+[32m+[m[32m//	-E_NOT_FOUND if the function needed to allocate an indirect block, but[m
+[32m+[m[32m//		alloc was 0.[m
+[32m+[m[32m//	-E_NO_DISK if there's no space on the disk for an indirect block.[m
+[32m+[m[32m//	-E_INVAL if filebno is out of range (it's >= NDIRECT + NINDIRECT).[m
+[32m+[m[32m//[m
+[32m+[m[32m// Analogy: This is like pgdir_walk for files.[m
+[32m+[m[32m// Hint: Don't forget to clear any block you allocate.[m
+[32m+[m[32mstatic int[m
+[32m+[m[32mfile_block_walk(struct File *f, uint32_t filebno, uint32_t **ppdiskbno, bool alloc)[m
+[32m+[m[32m{[m
+[32m+[m[32m       // LAB 5: Your code here.[m
+[32m+[m[32m       panic("file_block_walk not implemented");[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m// Set *blk to the address in memory where the filebno'th[m
+[32m+[m[32m// block of file 'f' would be mapped.[m
+[32m+[m[32m//[m
+[32m+[m[32m// Returns 0 on success, < 0 on error.  Errors are:[m
+[32m+[m[32m//	-E_NO_DISK if a block needed to be allocated but the disk is full.[m
+[32m+[m[32m//	-E_INVAL if filebno is out of range.[m
+[32m+[m[32m//[m
+[32m+[m[32m// Hint: Use file_block_walk and alloc_block.[m
+[32m+[m[32mint[m
+[32m+[m[32mfile_get_block(struct File *f, uint32_t filebno, char **blk)[m
+[32m+[m[32m{[m
+[32m+[m[32m       // LAB 5: Your code here.[m
+[32m+[m[32m       panic("file_get_block not implemented");[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m// Try to find a file named "name" in dir.  If so, set *file to it.[m
+[32m+[m[32m//[m
+[32m+[m[32m// Returns 0 and sets *file on success, < 0 on error.  Errors are:[m
+[32m+[m[32m//	-E_NOT_FOUND if the file is not found[m
+[32m+[m[32mstatic int[m
+[32m+[m[32mdir_lookup(struct File *dir, const char *name, struct File **file)[m
+[32m+[m[32m{[m
+[32m+[m	[32mint r;[m
+[32m+[m	[32muint32_t i, j, nblock;[m
+[32m+[m	[32mchar *blk;[m
+[32m+[m	[32mstruct File *f;[m
+[32m+[m
+[32m+[m	[32m// Search dir for name.[m
+[32m+[m	[32m// We maintain the invariant that the size of a directory-file[m
+[32m+[m	[32m// is always a multiple of the file system's block size.[m
+[32m+[m	[32massert((dir->f_size % BLKSIZE) == 0);[m
+[32m+[m	[32mnblock = dir->f_size / BLKSIZE;[m
+[32m+[m	[32mfor (i = 0; i < nblock; i++) {[m
+[32m+[m		[32mif ((r = file_get_block(dir, i, &blk)) < 0)[m
+[32m+[m			[32mreturn r;[m
+[32m+[m		[32mf = (struct File*) blk;[m
+[32m+[m		[32mfor (j = 0; j < BLKFILES; j++)[m
+[32m+[m			[32mif (strcmp(f[j].f_name, name) == 0) {[m
+[32m+[m				[32m*file = &f[j];[m
+[32m+[m				[32mreturn 0;[m
+[32m+[m			[32m}[m
+[32m+[m	[32m}[m
+[32m+[m	[32mreturn -E_NOT_FOUND;[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m// Set *file to point at a free File structure in dir.  The caller is[m
+[32m+[m[32m// responsible for filling in the File fields.[m
+[32m+[m[32mstatic int[m
+[32m+[m[32mdir_alloc_file(struct File *dir, struct File **file)[m
+[32m+[m[32m{[m
+[32m+[m	[32mint r;[m
+[32m+[m	[32muint32_t nblock, i, j;[m
+[32m+[m	[32mchar *blk;[m
+[32m+[m	[32mstruct File *f;[m
+[32m+[m
+[32m+[m	[32massert((dir->f_size % BLKSIZE) == 0);[m
+[32m+[m	[32mnblock = dir->f_size / BLKSIZE;[m
+[32m+[m	[32mfor (i = 0; i < nblock; i++) {[m
+[32m+[m		[32mif ((r = file_get_block(dir, i, &blk)) < 0)[m
+[32m+[m			[32mreturn r;[m
+[32m+[m		[32mf = (struct File*) blk;[m
+[32m+[m		[32mfor (j = 0; j < BLKFILES; j++)[m
+[32m+[m			[32mif (f[j].f_name[0] == '\0') {[m
+[32m+[m				[32m*file = &f[j];[m
+[32m+[m				[32mreturn 0;[m
+[32m+[m			[32m}[m
+[32m+[m	[32m}[m
+[32m+[m	[32mdir->f_size += BLKSIZE;[m
+[32m+[m	[32mif ((r = file_get_block(dir, i, &blk)) < 0)[m
+[32m+[m		[32mreturn r;[m
+[32m+[m	[32mf = (struct File*) blk;[m
+[32m+[m	[32m*file = &f[0];[m
+[32m+[m	[32mreturn 0;[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m// Skip over slashes.[m
+[32m+[m[32mstatic const char*[m
+[32m+[m[32mskip_slash(const char *p)[m
+[32m+[m[32m{[m
+[32m+[m	[32mwhile (*p == '/')[m
+[32m+[m		[32mp++;[m
+[32m+[m	[32mreturn p;[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m// Evaluate a path name, starting at the root.[m
+[32m+[m[32m// On success, set *pf to the file we found[m
+[32m+[m[32m// and set *pdir to the directory the file is in.[m
+[32m+[m[32m// If we cannot find the file but find the directory[m
+[32m+[m[32m// it should be in, set *pdir and copy the final path[m
+[32m+[m[32m// element into lastelem.[m
+[32m+[m[32mstatic int[m
+[32m+[m[32mwalk_path(const char *path, struct File **pdir, struct File **pf, char *lastelem)[m
+[32m+[m[32m{[m
+[32m+[m	[32mconst char *p;[m
+[32m+[m	[32mchar name[MAXNAMELEN];[m
+[32m+[m	[32mstruct File *dir, *f;[m
+[32m+[m	[32mint r;[m
+[32m+[m
+[32m+[m	[32m// if (*path != '/')[m
+[32m+[m	[32m//	return -E_BAD_PATH;[m
+[32m+[m	[32mpath = skip_slash(path);[m
+[32m+[m	[32mf = &super->s_root;[m
+[32m+[m	[32mdir = 0;[m
+[32m+[m	[32mname[0] = 0;[m
+[32m+[m
+[32m+[m	[32mif (pdir)[m
+[32m+[m		[32m*pdir = 0;[m
+[32m+[m	[32m*pf = 0;[m
+[32m+[m	[32mwhile (*path != '\0') {[m
+[32m+[m		[32mdir = f;[m
+[32m+[m		[32mp = path;[m
+[32m+[m		[32mwhile (*path != '/' && *path != '\0')[m
+[32m+[m			[32mpath++;[m
+[32m+[m		[32mif (path - p >= MAXNAMELEN)[m
+[32m+[m			[32mreturn -E_BAD_PATH;[m
+[32m+[m		[32mmemmove(name, p, path - p);[m
+[32m+[m		[32mname[path - p] = '\0';[m
+[32m+[m		[32mpath = skip_slash(path);[m
+[32m+[m
+[32m+[m		[32mif (dir->f_type != FTYPE_DIR)[m
+[32m+[m			[32mreturn -E_NOT_FOUND;[m
+[32m+[m
+[32m+[m		[32mif ((r = dir_lookup(dir, name, &f)) < 0) {[m
+[32m+[m			[32mif (r == -E_NOT_FOUND && *path == '\0') {[m
+[32m+[m				[32mif (pdir)[m
+[32m+[m					[32m*pdir = dir;[m
+[32m+[m				[32mif (lastelem)[m
+[32m+[m					[32mstrcpy(lastelem, name);[m
+[32m+[m				[32m*pf = 0;[m
+[32m+[m			[32m}[m
+[32m+[m			[32mreturn r;[m
+[32m+[m		[32m}[m
+[32m+[m	[32m}[m
+[32m+[m
+[32m+[m	[32mif (pdir)[m
+[32m+[m		[32m*pdir = dir;[m
+[32m+[m	[32m*pf = f;[m
+[32m+[m	[32mreturn 0;[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m// --------------------------------------------------------------[m
+[32m+[m[32m// File operations[m
+[32m+[m[32m// --------------------------------------------------------------[m
+[32m+[m
+[32m+[m[32m// Create "path".  On success set *pf to point at the file and return 0.[m
+[32m+[m[32m// On error return < 0.[m
+[32m+[m[32mint[m
+[32m+[m[32mfile_create(const char *path, struct File **pf)[m
+[32m+[m[32m{[m
+[32m+[m	[32mchar name[MAXNAMELEN];[m
+[32m+[m	[32mint r;[m
+[32m+[m	[32mstruct File *dir, *f;[m
+[32m+[m
+[32m+[m	[32mif ((r = walk_path(path, &dir, &f, name)) == 0)[m
+[32m+[m		[32mreturn -E_FILE_EXISTS;[m
+[32m+[m	[32mif (r != -E_NOT_FOUND || dir == 0)[m
+[32m+[m		[32mreturn r;[m
+[32m+[m	[32mif ((r = dir_alloc_file(dir, &f)) < 0)[m
+[32m+[m		[32mreturn r;[m
+[32m+[m
+[32m+[m	[32mstrcpy(f->f_name, name);[m
+[32m+[m	[32m*pf = f;[m
+[32m+[m	[32mfile_flush(dir);[m
+[32m+[m	[32mreturn 0;[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m// Open "path".  On success set *pf to point at the file and return 0.[m
+[32m+[m[32m// On error return < 0.[m
+[32m+[m[32mint[m
+[32m+[m[32mfile_open(const char *path, struct File **pf)[m
+[32m+[m[32m{[m
+[32m+[m	[32mreturn walk_path(path, 0, pf, 0);[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m// Read count bytes from f into buf, starting from seek position[m
+[32m+[m[32m// offset.  This meant to mimic the standard pread function.[m
+[32m+[m[32m// Returns the number of bytes read, < 0 on error.[m
+[32m+[m[32mssize_t[m
+[32m+[m[32mfile_read(struct File *f, void *buf, size_t count, off_t offset)[m
+[32m+[m[32m{[m
+[32m+[m	[32mint r, bn;[m
+[32m+[m	[32moff_t pos;[m
+[32m+[m	[32mchar *blk;[m
+[32m+[m
+[32m+[m	[32mif (offset >= f->f_size)[m
+[32m+[m		[32mreturn 0;[m
+[32m+[m
+[32m+[m	[32mcount = MIN(count, f->f_size - offset);[m
+[32m+[m
+[32m+[m	[32mfor (pos = offset; pos < offset + count; ) {[m
+[32m+[m		[32mif ((r = file_get_block(f, pos / BLKSIZE, &blk)) < 0)[m
+[32m+[m			[32mreturn r;[m
+[32m+[m		[32mbn = MIN(BLKSIZE - pos % BLKSIZE, offset + count - pos);[m
+[32m+[m		[32mmemmove(buf, blk + pos % BLKSIZE, bn);[m
+[32m+[m		[32mpos += bn;[m
+[32m+[m		[32mbuf += bn;[m
+[32m+[m	[32m}[m
+[32m+[m
+[32m+[m	[32mreturn count;[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m
+[32m+[m[32m// Write count bytes from buf into f, starting at seek position[m
+[32m+[m[32m// offset.  This is meant to mimic the standard pwrite function.[m
+[32m+[m[32m// Extends the file if necessary.[m
+[32m+[m[32m// Returns the number of bytes written, < 0 on error.[m
+[32m+[m[32mint[m
+[32m+[m[32mfile_write(struct File *f, const void *buf, size_t count, off_t offset)[m
+[32m+[m[32m{[m
+[32m+[m	[32mint r, bn;[m
+[32m+[m	[32moff_t pos;[m
+[32m+[m	[32mchar *blk;[m
+[32m+[m
+[32m+[m	[32m// Extend file if necessary[m
+[32m+[m	[32mif (offset + count > f->f_size)[m
+[32m+[m		[32mif ((r = file_set_size(f, offset + count)) < 0)[m
+[32m+[m			[32mreturn r;[m
+[32m+[m
+[32m+[m	[32mfor (pos = offset; pos < offset + count; ) {[m
+[32m+[m		[32mif ((r = file_get_block(f, pos / BLKSIZE, &blk)) < 0)[m
+[32m+[m			[32mreturn r;[m
+[32m+[m		[32mbn = MIN(BLKSIZE - pos % BLKSIZE, offset + count - pos);[m
+[32m+[m		[32mmemmove(blk + pos % BLKSIZE, buf, bn);[m
+[32m+[m		[32mpos += bn;[m
+[32m+[m		[32mbuf += bn;[m
+[32m+[m	[32m}[m
+[32m+[m
+[32m+[m	[32mreturn count;[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m// Remove a block from file f.  If it's not there, just silently succeed.[m
+[32m+[m[32m// Returns 0 on success, < 0 on error.[m
+[32m+[m[32mstatic int[m
+[32m+[m[32mfile_free_block(struct File *f, uint32_t filebno)[m
+[32m+[m[32m{[m
+[32m+[m	[32mint r;[m
+[32m+[m	[32muint32_t *ptr;[m
+[32m+[m
+[32m+[m	[32mif ((r = file_block_walk(f, filebno, &ptr, 0)) < 0)[m
+[32m+[m		[32mreturn r;[m
+[32m+[m	[32mif (*ptr) {[m
+[32m+[m		[32mfree_block(*ptr);[m
+[32m+[m		[32m*ptr = 0;[m
+[32m+[m	[32m}[m
+[32m+[m	[32mreturn 0;[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m// Remove any blocks currently used by file 'f',[m
+[32m+[m[32m// but not necessary for a file of size 'newsize'.[m
+[32m+[m[32m// For both the old and new sizes, figure out the number of blocks required,[m
+[32m+[m[32m// and then clear the blocks from new_nblocks to old_nblocks.[m
+[32m+[m[32m// If the new_nblocks is no more than NDIRECT, and the indirect block has[m
+[32m+[m[32m// been allocated (f->f_indirect != 0), then free the indirect block too.[m
+[32m+[m[32m// (Remember to clear the f->f_indirect pointer so you'll know[m
+[32m+[m[32m// whether it's valid!)[m
+[32m+[m[32m// Do not change f->f_size.[m
+[32m+[m[32mstatic void[m
+[32m+[m[32mfile_truncate_blocks(struct File *f, off_t newsize)[m
+[32m+[m[32m{[m
+[32m+[m	[32mint r;[m
+[32m+[m	[32muint32_t bno, old_nblocks, new_nblocks;[m
+[32m+[m
+[32m+[m	[32mold_nblocks = (f->f_size + BLKSIZE - 1) / BLKSIZE;[m
+[32m+[m	[32mnew_nblocks = (newsize + BLKSIZE - 1) / BLKSIZE;[m
+[32m+[m	[32mfor (bno = new_nblocks; bno < old_nblocks; bno++)[m
+[32m+[m		[32mif ((r = file_free_block(f, bno)) < 0)[m
+[32m+[m			[32mcprintf("warning: file_free_block: %e", r);[m
+[32m+[m
+[32m+[m	[32mif (new_nblocks <= NDIRECT && f->f_indirect) {[m
+[32m+[m		[32mfree_block(f->f_indirect);[m
+[32m+[m		[32mf->f_indirect = 0;[m
+[32m+[m	[32m}[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m// Set the size of file f, truncating or extending as necessary.[m
+[32m+[m[32mint[m
+[32m+[m[32mfile_set_size(struct File *f, off_t newsize)[m
+[32m+[m[32m{[m
+[32m+[m	[32mif (f->f_size > newsize)[m
+[32m+[m		[32mfile_truncate_blocks(f, newsize);[m
+[32m+[m	[32mf->f_size = newsize;[m
+[32m+[m	[32mflush_block(f);[m
+[32m+[m	[32mreturn 0;[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m// Flush the contents and metadata of file f out to disk.[m
+[32m+[m[32m// Loop over all the blocks in file.[m
+[32m+[m[32m// Translate the file block number into a disk block number[m
+[32m+[m[32m// and then check whether that disk block is dirty.  If so, write it out.[m
+[32m+[m[32mvoid[m
+[32m+[m[32mfile_flush(struct File *f)[m
+[32m+[m[32m{[m
+[32m+[m	[32mint i;[m
+[32m+[m	[32muint32_t *pdiskbno;[m
+[32m+[m
+[32m+[m	[32mfor (i = 0; i < (f->f_size + BLKSIZE - 1) / BLKSIZE; i++) {[m
+[32m+[m		[32mif (file_block_walk(f, i, &pdiskbno, 0) < 0 ||[m
+[32m+[m		[32m    pdiskbno == NULL || *pdiskbno == 0)[m
+[32m+[m			[32mcontinue;[m
+[32m+[m		[32mflush_block(diskaddr(*pdiskbno));[m
+[32m+[m	[32m}[m
+[32m+[m	[32mflush_block(f);[m
+[32m+[m	[32mif (f->f_indirect)[m
+[32m+[m		[32mflush_block(diskaddr(f->f_indirect));[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m
+[32m+[m[32m// Sync the entire file system.  A big hammer.[m
+[32m+[m[32mvoid[m
+[32m+[m[32mfs_sync(void)[m
+[32m+[m[32m{[m
+[32m+[m	[32mint i;[m
+[32m+[m	[32mfor (i = 1; i < super->s_nblocks; i++)[m
+[32m+[m		[32mflush_block(diskaddr(i));[m
+[32m+[m[32m}[m
+[32m+[m
+[1mdiff --git a/fs/fs.h b/fs/fs.h[m
+[1mnew file mode 100644[m
+[1mindex 0000000..0350d78[m
+[1m--- /dev/null[m
+[1m+++ b/fs/fs.h[m
+[36m@@ -0,0 +1,49 @@[m
+[32m+[m[32m#include <inc/fs.h>[m
+[32m+[m[32m#include <inc/lib.h>[m
+[32m+[m
+[32m+[m[32m#define SECTSIZE	512			// bytes per disk sector[m
+[32m+[m[32m#define BLKSECTS	(BLKSIZE / SECTSIZE)	// sectors per block[m
+[32m+[m
+[32m+[m[32m/* Disk block n, when in memory, is mapped into the file system[m
+[32m+[m[32m * server's address space at DISKMAP + (n*BLKSIZE). */[m
+[32m+[m[32m#define DISKMAP		0x10000000[m
+[32m+[m
+[32m+[m[32m/* Maximum disk size we can handle (3GB) */[m
+[32m+[m[32m#define DISKSIZE	0xC0000000[m
+[32m+[m
+[32m+[m[32mstruct Super *super;		// superblock[m
+[32m+[m[32muint32_t *bitmap;		// bitmap blocks mapped in memory[m
+[32m+[m
+[32m+[m[32m/* ide.c */[m
+[32m+[m[32mbool	ide_probe_disk1(void);[m
+[32m+[m[32mvoid	ide_set_disk(int diskno);[m
+[32m+[m[32mvoid	ide_set_partition(uint32_t first_sect, uint32_t nsect);[m
+[32m+[m[32mint	ide_read(uint32_t secno, void *dst, size_t nsecs);[m
+[32m+[m[32mint	ide_write(uint32_t secno, const void *src, size_t nsecs);[m
+[32m+[m
+[32m+[m[32m/* bc.c */[m
+[32m+[m[32mvoid*	diskaddr(uint32_t blockno);[m
+[32m+[m[32mbool	va_is_mapped(void *va);[m
+[32m+[m[32mbool	va_is_dirty(void *va);[m
+[32m+[m[32mvoid	flush_block(void *addr);[m
+[32m+[m[32mvoid	bc_init(void);[m
+[32m+[m
+[32m+[m[32m/* fs.c */[m
+[32m+[m[32mvoid	fs_init(void);[m
+[32m+[m[32mint	file_get_block(struct File *f, uint32_t file_blockno, char **pblk);[m
+[32m+[m[32mint	file_create(const char *path, struct File **f);[m
+[32m+[m[32mint	file_open(const char *path, struct File **f);[m
+[32m+[m[32mssize_t	file_read(struct File *f, void *buf, size_t count, off_t offset);[m
+[32m+[m[32mint	file_write(struct File *f, const void *buf, size_t count, off_t offset);[m
+[32m+[m[32mint	file_set_size(struct File *f, off_t newsize);[m
+[32m+[m[32mvoid	file_flush(struct File *f);[m
+[32m+[m[32mint	file_remove(const char *path);[m
+[32m+[m[32mvoid	fs_sync(void);[m
+[32m+[m
+[32m+[m[32m/* int	map_block(uint32_t); */[m
+[32m+[m[32mbool	block_is_free(uint32_t blockno);[m
+[32m+[m[32mint	alloc_block(void);[m
+[32m+[m
+[32m+[m[32m/* test.c */[m
+[32m+[m[32mvoid	fs_test(void);[m
+[32m+[m
+[1mdiff --git a/fs/fsformat.c b/fs/fsformat.c[m
+[1mnew file mode 100644[m
+[1mindex 0000000..4dab07a[m
+[1m--- /dev/null[m
+[1m+++ b/fs/fsformat.c[m
+[36m@@ -0,0 +1,244 @@[m
+[32m+[m[32m/*[m
+[32m+[m[32m * JOS file system format[m
+[32m+[m[32m */[m
+[32m+[m
+[32m+[m[32m// We don't actually want to define off_t![m
+[32m+[m[32m#define off_t xxx_off_t[m
+[32m+[m[32m#define bool xxx_bool[m
+[32m+[m[32m#include <assert.h>[m
+[32m+[m[32m#include <errno.h>[m
+[32m+[m[32m#include <fcntl.h>[m
+[32m+[m[32m#include <inttypes.h>[m
+[32m+[m[32m#include <stdarg.h>[m
+[32m+[m[32m#include <stdio.h>[m
+[32m+[m[32m#include <stdlib.h>[m
+[32m+[m[32m#include <string.h>[m
+[32m+[m[32m#include <unistd.h>[m
+[32m+[m[32m#include <sys/mman.h>[m
+[32m+[m[32m#include <sys/stat.h>[m
+[32m+[m[32m#include <sys/types.h>[m
+[32m+[m[32m#undef off_t[m
+[32m+[m[32m#undef bool[m
+[32m+[m
+[32m+[m[32m// Prevent inc/types.h, included from inc/fs.h,[m
+[32m+[m[32m// from attempting to redefine types defined in the host's inttypes.h.[m
+[32m+[m[32m#define JOS_INC_TYPES_H[m
+[32m+[m[32m// Typedef the types that inc/mmu.h needs.[m
+[32m+[m[32mtypedef uint32_t physaddr_t;[m
+[32m+[m[32mtypedef uint32_t off_t;[m
+[32m+[m[32mtypedef int bool;[m
+[32m+[m
+[32m+[m[32m#include <inc/mmu.h>[m
+[32m+[m[32m#include <inc/fs.h>[m
+[32m+[m
+[32m+[m[32m#define ROUNDUP(n, v) ((n) - 1 + (v) - ((n) - 1) % (v))[m
+[32m+[m[32m#define MAX_DIR_ENTS 128[m
+[32m+[m
+[32m+[m[32mstruct Dir[m
+[32m+[m[32m{[m
+[32m+[m	[32mstruct File *f;[m
+[32m+[m	[32mstruct File *ents;[m
+[32m+[m	[32mint n;[m
+[32m+[m[32m};[m
+[32m+[m
+[32m+[m[32muint32_t nblocks;[m
+[32m+[m[32mchar *diskmap, *diskpos;[m
+[32m+[m[32mstruct Super *super;[m
+[32m+[m[32muint32_t *bitmap;[m
+[32m+[m
+[32m+[m[32mvoid[m
+[32m+[m[32mpanic(const char *fmt, ...)[m
+[32m+[m[32m{[m
+[32m+[m	[32mva_list ap;[m
+[32m+[m
+[32m+[m	[32mva_start(ap, fmt);[m
+[32m+[m	[32mvfprintf(stderr, fmt, ap);[m
+[32m+[m	[32mva_end(ap);[m
+[32m+[m	[32mfputc('\n', stderr);[m
+[32m+[m	[32mabort();[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32mvoid[m
+[32m+[m[32mreadn(int f, void *out, size_t n)[m
+[32m+[m[32m{[m
+[32m+[m	[32msize_t p = 0;[m
+[32m+[m	[32mwhile (p < n) {[m
+[32m+[m		[32mssize_t m = read(f, out + p, n - p);[m
+[32m+[m		[32mif (m < 0)[m
+[32m+[m			[32mpanic("read: %s", strerror(errno));[m
+[32m+[m		[32mif (m == 0)[m
+[32m+[m			[32mpanic("read: Unexpected EOF");[m
+[32m+[m		[32mp += m;[m
+[32m+[m	[32m}[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32muint32_t[m
+[32m+[m[32mblockof(void *pos)[m
+[32m+[m[32m{[m
+[32m+[m	[32mreturn ((char*)pos - diskmap) / BLKSIZE;[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32mvoid *[m
+[32m+[m[32malloc(uint32_t bytes)[m
+[32m+[m[32m{[m
+[32m+[m	[32mvoid *start = diskpos;[m
+[32m+[m	[32mdiskpos += ROUNDUP(bytes, BLKSIZE);[m
+[32m+[m	[32mif (blockof(diskpos) >= nblocks)[m
+[32m+[m		[32mpanic("out of disk blocks");[m
+[32m+[m	[32mreturn start;[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32mvoid[m
+[32m+[m[32mopendisk(const char *name)[m
+[32m+[m[32m{[m
+[32m+[m	[32mint r, diskfd, nbitblocks;[m
+[32m+[m
+[32m+[m	[32mif ((diskfd = open(name, O_RDWR | O_CREAT, 0666)) < 0)[m
+[32m+[m		[32mpanic("open %s: %s", name, strerror(errno));[m
+[32m+[m
+[32m+[m	[32mif ((r = ftruncate(diskfd, 0)) < 0[m
+[32m+[m	[32m    || (r = ftruncate(diskfd, nblocks * BLKSIZE)) < 0)[m
+[32m+[m		[32mpanic("truncate %s: %s", name, strerror(errno));[m
+[32m+[m
+[32m+[m	[32mif ((diskmap = mmap(NULL, nblocks * BLKSIZE, PROT_READ|PROT_WRITE,[m
+[32m+[m			[32m    MAP_SHARED, diskfd, 0)) == MAP_FAILED)[m
+[32m+[m		[32mpanic("mmap %s: %s", name, strerror(errno));[m
+[32m+[m
+[32m+[m	[32mclose(diskfd);[m
+[32m+[m
+[32m+[m	[32mdiskpos = diskmap;[m
+[32m+[m	[32malloc(BLKSIZE);[m
+[32m+[m	[32msuper = alloc(BLKSIZE);[m
+[32m+[m	[32msuper->s_magic = FS_MAGIC;[m
+[32m+[m	[32msuper->s_nblocks = nblocks;[m
+[32m+[m	[32msuper->s_root.f_type = FTYPE_DIR;[m
+[32m+[m	[32mstrcpy(super->s_root.f_name, "/");[m
+[32m+[m
+[32m+[m	[32mnbitblocks = (nblocks + BLKBITSIZE - 1) / BLKBITSIZE;[m
+[32m+[m	[32mbitmap = alloc(nbitblocks * BLKSIZE);[m
+[32m+[m	[32mmemset(bitmap, 0xFF, nbitblocks * BLKSIZE);[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32mvoid[m
+[32m+[m[32mfinishdisk(void)[m
+[32m+[m[32m{[m
+[32m+[m	[32mint r, i;[m
+[32m+[m
+[32m+[m	[32mfor (i = 0; i < blockof(diskpos); ++i)[m
+[32m+[m		[32mbitmap[i/32] &= ~(1<<(i%32));[m
+[32m+[m
+[32m+[m	[32mif ((r = msync(diskmap, nblocks * BLKSIZE, MS_SYNC)) < 0)[m
+[32m+[m		[32mpanic("msync: %s", strerror(errno));[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32mvoid[m
+[32m+[m[32mfinishfile(struct File *f, uint32_t start, uint32_t len)[m
+[32m+[m[32m{[m
+[32m+[m	[32mint i;[m
+[32m+[m	[32mf->f_size = len;[m
+[32m+[m	[32mlen = ROUNDUP(len, BLKSIZE);[m
+[32m+[m	[32mfor (i = 0; i < len / BLKSIZE && i < NDIRECT; ++i)[m
+[32m+[m		[32mf->f_direct[i] = start + i;[m
+[32m+[m	[32mif (i == NDIRECT) {[m
+[32m+[m		[32muint32_t *ind = alloc(BLKSIZE);[m
+[32m+[m		[32mf->f_indirect = blockof(ind);[m
+[32m+[m		[32mfor (; i < len / BLKSIZE; ++i)[m
+[32m+[m			[32mind[i - NDIRECT] = start + i;[m
+[32m+[m	[32m}[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32mvoid[m
+[32m+[m[32mstartdir(struct File *f, struct Dir *dout)[m
+[32m+[m[32m{[m
+[32m+[m	[32mdout->f = f;[m
+[32m+[m	[32mdout->ents = malloc(MAX_DIR_ENTS * sizeof *dout->ents);[m
+[32m+[m	[32mdout->n = 0;[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32mstruct File *[m
+[32m+[m[32mdiradd(struct Dir *d, uint32_t type, const char *name)[m
+[32m+[m[32m{[m
+[32m+[m	[32mstruct File *out = &d->ents[d->n++];[m
+[32m+[m	[32mif (d->n > MAX_DIR_ENTS)[m
+[32m+[m		[32mpanic("too many directory entries");[m
+[32m+[m	[32mstrcpy(out->f_name, name);[m
+[32m+[m	[32mout->f_type = type;[m
+[32m+[m	[32mreturn out;[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32mvoid[m
+[32m+[m[32mfinishdir(struct Dir *d)[m
+[32m+[m[32m{[m
+[32m+[m	[32mint size = d->n * sizeof(struct File);[m
+[32m+[m	[32mstruct File *start = alloc(size);[m
+[32m+[m	[32mmemmove(start, d->ents, size);[m
+[32m+[m	[32mfinishfile(d->f, blockof(start), ROUNDUP(size, BLKSIZE));[m
+[32m+[m	[32mfree(d->ents);[m
+[32m+[m	[32md->ents = NULL;[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32mvoid[m
+[32m+[m[32mwritefile(struct Dir *dir, const char *name)[m
+[32m+[m[32m{[m
+[32m+[m	[32mint r, fd;[m
+[32m+[m	[32mstruct File *f;[m
+[32m+[m	[32mstruct stat st;[m
+[32m+[m	[32mconst char *last;[m
+[32m+[m	[32mchar *start;[m
+[32m+[m
+[32m+[m	[32mif ((fd = open(name, O_RDONLY)) < 0)[m
+[32m+[m		[32mpanic("open %s: %s", name, strerror(errno));[m
+[32m+[m	[32mif ((r = fstat(fd, &st)) < 0)[m
+[32m+[m		[32mpanic("stat %s: %s", name, strerror(errno));[m
+[32m+[m	[32mif (!S_ISREG(st.st_mode))[m
+[32m+[m		[32mpanic("%s is not a regular file", name);[m
+[32m+[m	[32mif (st.st_size >= MAXFILESIZE)[m
+[32m+[m		[32mpanic("%s too large", name);[m
+[32m+[m
+[32m+[m	[32mlast = strrchr(name, '/');[m
+[32m+[m	[32mif (last)[m
+[32m+[m		[32mlast++;[m
+[32m+[m	[32melse[m
+[32m+[m		[32mlast = name;[m
+[32m+[m
+[32m+[m	[32mf = diradd(dir, FTYPE_REG, last);[m
+[32m+[m	[32mstart = alloc(st.st_size);[m
+[32m+[m	[32mreadn(fd, start, st.st_size);[m
+[32m+[m	[32mfinishfile(f, blockof(start), st.st_size);[m
+[32m+[m	[32mclose(fd);[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32mvoid[m
+[32m+[m[32musage(void)[m
+[32m+[m[32m{[m
+[32m+[m	[32mfprintf(stderr, "Usage: fsformat fs.img NBLOCKS files...\n");[m
+[32m+[m	[32mexit(2);[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32mint[m
+[32m+[m[32mmain(int argc, char **argv)[m
+[32m+[m[32m{[m
+[32m+[m	[32mint i;[m
+[32m+[m	[32mchar *s;[m
+[32m+[m	[32mstruct Dir root;[m
+[32m+[m
+[32m+[m	[32massert(BLKSIZE % sizeof(struct File) == 0);[m
+[32m+[m
+[32m+[m	[32mif (argc < 3)[m
+[32m+[m		[32musage();[m
+[32m+[m
+[32m+[m	[32mnblocks = strtol(argv[2], &s, 0);[m
+[32m+[m	[32mif (*s || s == argv[2] || nblocks < 2 || nblocks > 1024)[m
+[32m+[m		[32musage();[m
+[32m+[m
+[32m+[m	[32mopendisk(argv[1]);[m
+[32m+[m
+[32m+[m	[32mstartdir(&super->s_root, &root);[m
+[32m+[m	[32mfor (i = 3; i < argc; i++)[m
+[32m+[m		[32mwritefile(&root, argv[i]);[m
+[32m+[m	[32mfinishdir(&root);[m
+[32m+[m
+[32m+[m	[32mfinishdisk();[m
+[32m+[m	[32mreturn 0;[m
+[32m+[m[32m}[m
+[32m+[m
+[1mdiff --git a/fs/ide.c b/fs/ide.c[m
+[1mnew file mode 100644[m
+[1mindex 0000000..2d8b4bf[m
+[1m--- /dev/null[m
+[1m+++ b/fs/ide.c[m
+[36m@@ -0,0 +1,112 @@[m
+[32m+[m[32m/*[m
+[32m+[m[32m * Minimal PIO-based (non-interrupt-driven) IDE driver code.[m
+[32m+[m[32m * For information about what all this IDE/ATA magic means,[m
+[32m+[m[32m * see the materials available on the class references page.[m
+[32m+[m[32m */[m
+[32m+[m
+[32m+[m[32m#include "fs.h"[m
+[32m+[m[32m#include <inc/x86.h>[m
+[32m+[m
+[32m+[m[32m#define IDE_BSY		0x80[m
+[32m+[m[32m#define IDE_DRDY	0x40[m
+[32m+[m[32m#define IDE_DF		0x20[m
+[32m+[m[32m#define IDE_ERR		0x01[m
+[32m+[m
+[32m+[m[32mstatic int diskno = 1;[m
+[32m+[m
+[32m+[m[32mstatic int[m
+[32m+[m[32mide_wait_ready(bool check_error)[m
+[32m+[m[32m{[m
+[32m+[m	[32mint r;[m
+[32m+[m
+[32m+[m	[32mwhile (((r = inb(0x1F7)) & (IDE_BSY|IDE_DRDY)) != IDE_DRDY)[m
+[32m+[m		[32m/* do nothing */;[m
+[32m+[m
+[32m+[m	[32mif (check_error && (r & (IDE_DF|IDE_ERR)) != 0)[m
+[32m+[m		[32mreturn -1;[m
+[32m+[m	[32mreturn 0;[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32mbool[m
+[32m+[m[32mide_probe_disk1(void)[m
+[32m+[m[32m{[m
+[32m+[m	[32mint r, x;[m
+[32m+[m
+[32m+[m	[32m// wait for Device 0 to be ready[m
+[32m+[m	[32mide_wait_ready(0);[m
+[32m+[m
+[32m+[m	[32m// switch to Device 1[m
+[32m+[m	[32moutb(0x1F6, 0xE0 | (1<<4));[m
+[32m+[m
+[32m+[m	[32m// check for Device 1 to be ready for a while[m
+[32m+[m	[32mfor (x = 0;[m
+[32m+[m	[32m     x < 1000 && ((r = inb(0x1F7)) & (IDE_BSY|IDE_DF|IDE_ERR)) != 0;[m
+[32m+[m	[32m     x++)[m
+[32m+[m		[32m/* do nothing */;[m
+[32m+[m
+[32m+[m	[32m// switch back to Device 0[m
+[32m+[m	[32moutb(0x1F6, 0xE0 | (0<<4));[m
+[32m+[m
+[32m+[m	[32mcprintf("Device 1 presence: %d\n", (x < 1000));[m
+[32m+[m	[32mreturn (x < 1000);[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32mvoid[m
+[32m+[m[32mide_set_disk(int d)[m
+[32m+[m[32m{[m
+[32m+[m	[32mif (d != 0 && d != 1)[m
+[32m+[m		[32mpanic("bad disk number");[m
+[32m+[m	[32mdiskno = d;[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m
+[32m+[m[32mint[m
+[32m+[m[32mide_read(uint32_t secno, void *dst, size_t nsecs)[m
+[32m+[m[32m{[m
+[32m+[m	[32mint r;[m
+[32m+[m
+[32m+[m	[32massert(nsecs <= 256);[m
+[32m+[m
+[32m+[m	[32mide_wait_ready(0);[m
+[32m+[m
+[32m+[m	[32moutb(0x1F2, nsecs);[m
+[32m+[m	[32moutb(0x1F3, secno & 0xFF);[m
+[32m+[m	[32moutb(0x1F4, (secno >> 8) & 0xFF);[m
+[32m+[m	[32moutb(0x1F5, (secno >> 16) & 0xFF);[m
+[32m+[m	[32moutb(0x1F6, 0xE0 | ((diskno&1)<<4) | ((secno>>24)&0x0F));[m
+[32m+[m	[32moutb(0x1F7, 0x20);	// CMD 0x20 means read sector[m
+[32m+[m
+[32m+[m	[32mfor (; nsecs > 0; nsecs--, dst += SECTSIZE) {[m
+[32m+[m		[32mif ((r = ide_wait_ready(1)) < 0)[m
+[32m+[m			[32mreturn r;[m
+[32m+[m		[32minsl(0x1F0, dst, SECTSIZE/4);[m
+[32m+[m	[32m}[m
+[32m+[m
+[32m+[m	[32mreturn 0;[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32mint[m
+[32m+[m[32mide_write(uint32_t secno, const void *src, size_t nsecs)[m
+[32m+[m[32m{[m
+[32m+[m	[32mint r;[m
+[32m+[m
+[32m+[m	[32massert(nsecs <= 256);[m
+[32m+[m
+[32m+[m	[32mide_wait_ready(0);[m
+[32m+[m
+[32m+[m	[32moutb(0x1F2, nsecs);[m
+[32m+[m	[32moutb(0x1F3, secno & 0xFF);[m
+[32m+[m	[32moutb(0x1F4, (secno >> 8) & 0xFF);[m
+[32m+[m	[32moutb(0x1F5, (secno >> 16) & 0xFF);[m
+[32m+[m	[32moutb(0x1F6, 0xE0 | ((diskno&1)<<4) | ((secno>>24)&0x0F));[m
+[32m+[m	[32moutb(0x1F7, 0x30);	// CMD 0x30 means write sector[m
+[32m+[m
+[32m+[m	[32mfor (; nsecs > 0; nsecs--, src += SECTSIZE) {[m
+[32m+[m		[32mif ((r = ide_wait_ready(1)) < 0)[m
+[32m+[m			[32mreturn r;[m
+[32m+[m		[32moutsl(0x1F0, src, SECTSIZE/4);[m
+[32m+[m	[32m}[m
+[32m+[m
+[32m+[m	[32mreturn 0;[m
+[32m+[m[32m}[m
+[32m+[m
+[1mdiff --git a/fs/lorem b/fs/lorem[m
+[1mnew file mode 100644[m
+[1mindex 0000000..c7c76e5[m
+[1m--- /dev/null[m
+[1m+++ b/fs/lorem[m
+[36m@@ -0,0 +1,12 @@[m
+[32m+[m[32mLorem ipsum dolor sit amet, consectetur[m
+[32m+[m[32madipisicing elit, sed do eiusmod tempor[m
+[32m+[m[32mincididunt ut labore et dolore magna[m
+[32m+[m[32maliqua. Ut enim ad minim veniam, quis[m
+[32m+[m[32mnostrud exercitation ullamco laboris[m
+[32m+[m[32mnisi ut aliquip ex ea commodo consequat.[m
+[32m+[m[32mDuis aute irure dolor in reprehenderit[m
+[32m+[m[32min voluptate velit esse cillum dolore eu[m
+[32m+[m[32mfugiat nulla pariatur. Excepteur sint[m
+[32m+[m[32moccaecat cupidatat non proident, sunt in[m
+[32m+[m[32mculpa qui officia deserunt mollit anim[m
+[32m+[m[32mid est laborum.[m
+[1mdiff --git a/fs/motd b/fs/motd[m
+[1mnew file mode 100644[m
+[1mindex 0000000..3643fef[m
+[1m--- /dev/null[m
+[1m+++ b/fs/motd[m
+[36m@@ -0,0 +1,4 @@[m
+[32m+[m[32mThis is /motd, the message of the day.[m
+[32m+[m
+[32m+[m[32mWelcome to the JOS kernel, now with a file system![m
+[32m+[m
+[1mdiff --git a/fs/newmotd b/fs/newmotd[m
+[1mnew file mode 100644[m
+[1mindex 0000000..58c9cf2[m
+[1m--- /dev/null[m
+[1m+++ b/fs/newmotd[m
+[36m@@ -0,0 +1,2 @@[m
+[32m+[m[32mThis is the NEW message of the day![m
+[32m+[m
+[1mdiff --git a/fs/script b/fs/script[m
+[1mnew file mode 100644[m
+[1mindex 0000000..e4291d4[m
+[1m--- /dev/null[m
+[1m+++ b/fs/script[m
+[36m@@ -0,0 +1,5 @@[m
+[32m+[m[32mecho This is from the script.[m
+[32m+[m[32mcat lorem | num | cat[m
+[32m+[m[32mecho These are my file descriptors.[m
+[32m+[m[32mlsfd -1[m
+[32m+[m[32mecho This is the end of the script.[m
+[1mdiff --git a/fs/serv.c b/fs/serv.c[m
+[1mnew file mode 100644[m
+[1mindex 0000000..76c1d99[m
+[1m--- /dev/null[m
+[1m+++ b/fs/serv.c[m
+[36m@@ -0,0 +1,345 @@[m
+[32m+[m[32m/*[m
+[32m+[m[32m * File system server main loop -[m
+[32m+[m[32m * serves IPC requests from other environments.[m
+[32m+[m[32m */[m
+[32m+[m
+[32m+[m[32m#include <inc/x86.h>[m
+[32m+[m[32m#include <inc/string.h>[m
+[32m+[m
+[32m+[m[32m#include "fs.h"[m
+[32m+[m
+[32m+[m
+[32m+[m[32m#define debug 0[m
+[32m+[m
+[32m+[m[32m// The file system server maintains three structures[m
+[32m+[m[32m// for each open file.[m
+[32m+[m[32m//[m
+[32m+[m[32m// 1. The on-disk 'struct File' is mapped into the part of memory[m
+[32m+[m[32m//    that maps the disk.  This memory is kept private to the file[m
+[32m+[m[32m//    server.[m
+[32m+[m[32m// 2. Each open file has a 'struct Fd' as well, which sort of[m
+[32m+[m[32m//    corresponds to a Unix file descriptor.  This 'struct Fd' is kept[m
+[32m+[m[32m//    on *its own page* in memory, and it is shared with any[m
+[32m+[m[32m//    environments that have the file open.[m
+[32m+[m[32m// 3. 'struct OpenFile' links these other two structures, and is kept[m
+[32m+[m[32m//    private to the file server.  The server maintains an array of[m
+[32m+[m[32m//    all open files, indexed by "file ID".  (There can be at most[m
+[32m+[m[32m//    MAXOPEN files open concurrently.)  The client uses file IDs to[m
+[32m+[m[32m//    communicate with the server.  File IDs are a lot like[m
+[32m+[m[32m//    environment IDs in the kernel.  Use openfile_lookup to translate[m
+[32m+[m[32m//    file IDs to struct OpenFile.[m
+[32m+[m
+[32m+[m[32mstruct OpenFile {[m
+[32m+[m	[32muint32_t o_fileid;	// file id[m
+[32m+[m	[32mstruct File *o_file;	// mapped descriptor for open file[m
+[32m+[m	[32mint o_mode;		// open mode[m
+[32m+[m	[32mstruct Fd *o_fd;	// Fd page[m
+[32m+[m[32m};[m
+[32m+[m
+[32m+[m[32m// Max number of open files in the file system at once[m
+[32m+[m[32m#define MAXOPEN		1024[m
+[32m+[m[32m#define FILEVA		0xD0000000[m
+[32m+[m
+[32m+[m[32m// initialize to force into data section[m
+[32m+[m[32mstruct OpenFile opentab[MAXOPEN] = {[m
+[32m+[m	[32m{ 0, 0, 1, 0 }[m
+[32m+[m[32m};[m
+[32m+[m
+[32m+[m[32m// Virtual address at which to receive page mappings containing client requests.[m
+[32m+[m[32munion Fsipc *fsreq = (union Fsipc *)0x0ffff000;[m
+[32m+[m
+[32m+[m[32mvoid[m
+[32m+[m[32mserve_init(void)[m
+[32m+[m[32m{[m
+[32m+[m	[32mint i;[m
+[32m+[m	[32muintptr_t va = FILEVA;[m
+[32m+[m	[32mfor (i = 0; i < MAXOPEN; i++) {[m
+[32m+[m		[32mopentab[i].o_fileid = i;[m
+[32m+[m		[32mopentab[i].o_fd = (struct Fd*) va;[m
+[32m+[m		[32mva += PGSIZE;[m
+[32m+[m	[32m}[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m// Allocate an open file.[m
+[32m+[m[32mint[m
+[32m+[m[32mopenfile_alloc(struct OpenFile **o)[m
+[32m+[m[32m{[m
+[32m+[m	[32mint i, r;[m
+[32m+[m
+[32m+[m	[32m// Find an available open-file table entry[m
+[32m+[m	[32mfor (i = 0; i < MAXOPEN; i++) {[m
+[32m+[m		[32mswitch (pageref(opentab[i].o_fd)) {[m
+[32m+[m		[32mcase 0:[m
+[32m+[m			[32mif ((r = sys_page_alloc(0, opentab[i].o_fd, PTE_P|PTE_U|PTE_W)) < 0)[m
+[32m+[m				[32mreturn r;[m
+[32m+[m			[32m/* fall through */[m
+[32m+[m		[32mcase 1:[m
+[32m+[m			[32mopentab[i].o_fileid += MAXOPEN;[m
+[32m+[m			[32m*o = &opentab[i];[m
+[32m+[m			[32mmemset(opentab[i].o_fd, 0, PGSIZE);[m
+[32m+[m			[32mreturn (*o)->o_fileid;[m
+[32m+[m		[32m}[m
+[32m+[m	[32m}[m
+[32m+[m	[32mreturn -E_MAX_OPEN;[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m// Look up an open file for envid.[m
+[32m+[m[32mint[m
+[32m+[m[32mopenfile_lookup(envid_t envid, uint32_t fileid, struct OpenFile **po)[m
+[32m+[m[32m{[m
+[32m+[m	[32mstruct OpenFile *o;[m
+[32m+[m
+[32m+[m	[32mo = &opentab[fileid % MAXOPEN];[m
+[32m+[m	[32mif (pageref(o->o_fd) <= 1 || o->o_fileid != fileid)[m
+[32m+[m		[32mreturn -E_INVAL;[m
+[32m+[m	[32m*po = o;[m
+[32m+[m	[32mreturn 0;[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m// Open req->req_path in mode req->req_omode, storing the Fd page and[m
+[32m+[m[32m// permissions to return to the calling environment in *pg_store and[m
+[32m+[m[32m// *perm_store respectively.[m
+[32m+[m[32mint[m
+[32m+[m[32mserve_open(envid_t envid, struct Fsreq_open *req,[m
+[32m+[m	[32m   void **pg_store, int *perm_store)[m
+[32m+[m[32m{[m
+[32m+[m	[32mchar path[MAXPATHLEN];[m
+[32m+[m	[32mstruct File *f;[m
+[32m+[m	[32mint fileid;[m
+[32m+[m	[32mint r;[m
+[32m+[m	[32mstruct OpenFile *o;[m
+[32m+[m
+[32m+[m	[32mif (debug)[m
+[32m+[m		[32mcprintf("serve_open %08x %s 0x%x\n", envid, req->req_path, req->req_omode);[m
+[32m+[m
+[32m+[m	[32m// Copy in the path, making sure it's null-terminated[m
+[32m+[m	[32mmemmove(path, req->req_path, MAXPATHLEN);[m
+[32m+[m	[32mpath[MAXPATHLEN-1] = 0;[m
+[32m+[m
+[32m+[m	[32m// Find an open file ID[m
+[32m+[m	[32mif ((r = openfile_alloc(&o)) < 0) {[m
+[32m+[m		[32mif (debug)[m
+[32m+[m			[32mcprintf("openfile_alloc failed: %e", r);[m
+[32m+[m		[32mreturn r;[m
+[32m+[m	[32m}[m
+[32m+[m	[32mfileid = r;[m
+[32m+[m
+[32m+[m	[32m// Open the file[m
+[32m+[m	[32mif (req->req_omode & O_CREAT) {[m
+[32m+[m		[32mif ((r = file_create(path, &f)) < 0) {[m
+[32m+[m			[32mif (!(req->req_omode & O_EXCL) && r == -E_FILE_EXISTS)[m
+[32m+[m				[32mgoto try_open;[m
+[32m+[m			[32mif (debug)[m
+[32m+[m				[32mcprintf("file_create failed: %e", r);[m
+[32m+[m			[32mreturn r;[m
+[32m+[m		[32m}[m
+[32m+[m	[32m} else {[m
+[32m+[m[32mtry_open:[m
+[32m+[m		[32mif ((r = file_open(path, &f)) < 0) {[m
+[32m+[m			[32mif (debug)[m
+[32m+[m				[32mcprintf("file_open failed: %e", r);[m
+[32m+[m			[32mreturn r;[m
+[32m+[m		[32m}[m
+[32m+[m	[32m}[m
+[32m+[m
+[32m+[m	[32m// Truncate[m
+[32m+[m	[32mif (req->req_omode & O_TRUNC) {[m
+[32m+[m		[32mif ((r = file_set_size(f, 0)) < 0) {[m
+[32m+[m			[32mif (debug)[m
+[32m+[m				[32mcprintf("file_set_size failed: %e", r);[m
+[32m+[m			[32mreturn r;[m
+[32m+[m		[32m}[m
+[32m+[m	[32m}[m
+[32m+[m	[32mif ((r = file_open(path, &f)) < 0) {[m
+[32m+[m		[32mif (debug)[m
+[32m+[m			[32mcprintf("file_open failed: %e", r);[m
+[32m+[m		[32mreturn r;[m
+[32m+[m	[32m}[m
+[32m+[m
+[32m+[m	[32m// Save the file pointer[m
+[32m+[m	[32mo->o_file = f;[m
+[32m+[m
+[32m+[m	[32m// Fill out the Fd structure[m
+[32m+[m	[32mo->o_fd->fd_file.id = o->o_fileid;[m
+[32m+[m	[32mo->o_fd->fd_omode = req->req_omode & O_ACCMODE;[m
+[32m+[m	[32mo->o_fd->fd_dev_id = devfile.dev_id;[m
+[32m+[m	[32mo->o_mode = req->req_omode;[m
+[32m+[m
+[32m+[m	[32mif (debug)[m
+[32m+[m		[32mcprintf("sending success, page %08x\n", (uintptr_t) o->o_fd);[m
+[32m+[m
+[32m+[m	[32m// Share the FD page with the caller by setting *pg_store,[m
+[32m+[m	[32m// store its permission in *perm_store[m
+[32m+[m	[32m*pg_store = o->o_fd;[m
+[32m+[m	[32m*perm_store = PTE_P|PTE_U|PTE_W|PTE_SHARE;[m
+[32m+[m
+[32m+[m	[32mreturn 0;[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m// Set the size of req->req_fileid to req->req_size bytes, truncating[m
+[32m+[m[32m// or extending the file as necessary.[m
+[32m+[m[32mint[m
+[32m+[m[32mserve_set_size(envid_t envid, struct Fsreq_set_size *req)[m
+[32m+[m[32m{[m
+[32m+[m	[32mstruct OpenFile *o;[m
+[32m+[m	[32mint r;[m
+[32m+[m
+[32m+[m	[32mif (debug)[m
+[32m+[m		[32mcprintf("serve_set_size %08x %08x %08x\n", envid, req->req_fileid, req->req_size);[m
+[32m+[m
+[32m+[m	[32m// Every file system IPC call has the same general structure.[m
+[32m+[m	[32m// Here's how it goes.[m
+[32m+[m
+[32m+[m	[32m// First, use openfile_lookup to find the relevant open file.[m
+[32m+[m	[32m// On failure, return the error code to the client with ipc_send.[m
+[32m+[m	[32mif ((r = openfile_lookup(envid, req->req_fileid, &o)) < 0)[m
+[32m+[m		[32mreturn r;[m
+[32m+[m
+[32m+[m	[32m// Second, call the relevant file system function (from fs/fs.c).[m
+[32m+[m	[32m// On failure, return the error code to the client.[m
+[32m+[m	[32mreturn file_set_size(o->o_file, req->req_size);[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m// Read at most ipc->read.req_n bytes from the current seek position[m
+[32m+[m[32m// in ipc->read.req_fileid.  Return the bytes read from the file to[m
+[32m+[m[32m// the caller in ipc->readRet, then update the seek position.  Returns[m
+[32m+[m[32m// the number of bytes successfully read, or < 0 on error.[m
+[32m+[m[32mint[m
+[32m+[m[32mserve_read(envid_t envid, union Fsipc *ipc)[m
+[32m+[m[32m{[m
+[32m+[m	[32mstruct Fsreq_read *req = &ipc->read;[m
+[32m+[m	[32mstruct Fsret_read *ret = &ipc->readRet;[m
+[32m+[m
+[32m+[m	[32mif (debug)[m
+[32m+[m		[32mcprintf("serve_read %08x %08x %08x\n", envid, req->req_fileid, req->req_n);[m
+[32m+[m
+[32m+[m	[32m// Lab 5: Your code here:[m
+[32m+[m	[32mreturn 0;[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m
+[32m+[m[32m// Write req->req_n bytes from req->req_buf to req_fileid, starting at[m
+[32m+[m[32m// the current seek position, and update the seek position[m
+[32m+[m[32m// accordingly.  Extend the file if necessary.  Returns the number of[m
+[32m+[m[32m// bytes written, or < 0 on error.[m
+[32m+[m[32mint[m
+[32m+[m[32mserve_write(envid_t envid, struct Fsreq_write *req)[m
+[32m+[m[32m{[m
+[32m+[m	[32mif (debug)[m
+[32m+[m		[32mcprintf("serve_write %08x %08x %08x\n", envid, req->req_fileid, req->req_n);[m
+[32m+[m
+[32m+[m	[32m// LAB 5: Your code here.[m
+[32m+[m	[32mpanic("serve_write not implemented");[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m// Stat ipc->stat.req_fileid.  Return the file's struct Stat to the[m
+[32m+[m[32m// caller in ipc->statRet.[m
+[32m+[m[32mint[m
+[32m+[m[32mserve_stat(envid_t envid, union Fsipc *ipc)[m
+[32m+[m[32m{[m
+[32m+[m	[32mstruct Fsreq_stat *req = &ipc->stat;[m
+[32m+[m	[32mstruct Fsret_stat *ret = &ipc->statRet;[m
+[32m+[m	[32mstruct OpenFile *o;[m
+[32m+[m	[32mint r;[m
+[32m+[m
+[32m+[m	[32mif (debug)[m
+[32m+[m		[32mcprintf("serve_stat %08x %08x\n", envid, req->req_fileid);[m
+[32m+[m
+[32m+[m	[32mif ((r = openfile_lookup(envid, req->req_fileid, &o)) < 0)[m
+[32m+[m		[32mreturn r;[m
+[32m+[m
+[32m+[m	[32mstrcpy(ret->ret_name, o->o_file->f_name);[m
+[32m+[m	[32mret->ret_size = o->o_file->f_size;[m
+[32m+[m	[32mret->ret_isdir = (o->o_file->f_type == FTYPE_DIR);[m
+[32m+[m	[32mreturn 0;[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m// Flush all data and metadata of req->req_fileid to disk.[m
+[32m+[m[32mint[m
+[32m+[m[32mserve_flush(envid_t envid, struct Fsreq_flush *req)[m
+[32m+[m[32m{[m
+[32m+[m	[32mstruct OpenFile *o;[m
+[32m+[m	[32mint r;[m
+[32m+[m
+[32m+[m	[32mif (debug)[m
+[32m+[m		[32mcprintf("serve_flush %08x %08x\n", envid, req->req_fileid);[m
+[32m+[m
+[32m+[m	[32mif ((r = openfile_lookup(envid, req->req_fileid, &o)) < 0)[m
+[32m+[m		[32mreturn r;[m
+[32m+[m	[32mfile_flush(o->o_file);[m
+[32m+[m	[32mreturn 0;[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m
+[32m+[m[32mint[m
+[32m+[m[32mserve_sync(envid_t envid, union Fsipc *req)[m
+[32m+[m[32m{[m
+[32m+[m	[32mfs_sync();[m
+[32m+[m	[32mreturn 0;[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32mtypedef int (*fshandler)(envid_t envid, union Fsipc *req);[m
+[32m+[m
+[32m+[m[32mfshandler handlers[] = {[m
+[32m+[m	[32m// Open is handled specially because it passes pages[m
+[32m+[m	[32m/* [FSREQ_OPEN] =	(fshandler)serve_open, */[m
+[32m+[m	[32m[FSREQ_READ] =		serve_read,[m
+[32m+[m	[32m[FSREQ_STAT] =		serve_stat,[m
+[32m+[m	[32m[FSREQ_FLUSH] =		(fshandler)serve_flush,[m
+[32m+[m	[32m[FSREQ_WRITE] =		(fshandler)serve_write,[m
+[32m+[m	[32m[FSREQ_SET_SIZE] =	(fshandler)serve_set_size,[m
+[32m+[m	[32m[FSREQ_SYNC] =		serve_sync[m
+[32m+[m[32m};[m
+[32m+[m
+[32m+[m[32mvoid[m
+[32m+[m[32mserve(void)[m
+[32m+[m[32m{[m
+[32m+[m	[32muint32_t req, whom;[m
+[32m+[m	[32mint perm, r;[m
+[32m+[m	[32mvoid *pg;[m
+[32m+[m
+[32m+[m	[32mwhile (1) {[m
+[32m+[m		[32mperm = 0;[m
+[32m+[m		[32mreq = ipc_recv((int32_t *) &whom, fsreq, &perm);[m
+[32m+[m		[32mif (debug)[m
+[32m+[m			[32mcprintf("fs req %d from %08x [page %08x: %s]\n",[m
+[32m+[m				[32mreq, whom, uvpt[PGNUM(fsreq)], fsreq);[m
+[32m+[m
+[32m+[m		[32m// All requests must contain an argument page[m
+[32m+[m		[32mif (!(perm & PTE_P)) {[m
+[32m+[m			[32mcprintf("Invalid request from %08x: no argument page\n",[m
+[32m+[m				[32mwhom);[m
+[32m+[m			[32mcontinue; // just leave it hanging...[m
+[32m+[m		[32m}[m
+[32m+[m
+[32m+[m		[32mpg = NULL;[m
+[32m+[m		[32mif (req == FSREQ_OPEN) {[m
+[32m+[m			[32mr = serve_open(whom, (struct Fsreq_open*)fsreq, &pg, &perm);[m
+[32m+[m		[32m} else if (req < ARRAY_SIZE(handlers) && handlers[req]) {[m
+[32m+[m			[32mr = handlers[req](whom, fsreq);[m
+[32m+[m		[32m} else {[m
+[32m+[m			[32mcprintf("Invalid request code %d from %08x\n", req, whom);[m
+[32m+[m			[32mr = -E_INVAL;[m
+[32m+[m		[32m}[m
+[32m+[m		[32mipc_send(whom, r, pg, perm);[m
+[32m+[m		[32msys_page_unmap(0, fsreq);[m
+[32m+[m	[32m}[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32mvoid[m
+[32m+[m[32mumain(int argc, char **argv)[m
+[32m+[m[32m{[m
+[32m+[m	[32mstatic_assert(sizeof(struct File) == 256);[m
+[32m+[m	[32mbinaryname = "fs";[m
+[32m+[m	[32mcprintf("FS is running\n");[m
+[32m+[m
+[32m+[m	[32m// Check that we are able to do I/O[m
+[32m+[m	[32moutw(0x8A00, 0x8A00);[m
+[32m+[m	[32mcprintf("FS can do I/O\n");[m
+[32m+[m
+[32m+[m	[32mserve_init();[m
+[32m+[m	[32mfs_init();[m
+[32m+[m[32m        fs_test();[m
+[32m+[m	[32mserve();[m
+[32m+[m[32m}[m
+[32m+[m
+[1mdiff --git a/fs/testshell.sh b/fs/testshell.sh[m
+[1mnew file mode 100644[m
+[1mindex 0000000..c4f5984[m
+[1m--- /dev/null[m
+[1m+++ b/fs/testshell.sh[m
+[36m@@ -0,0 +1,7 @@[m
+[32m+[m[32mecho hello world | cat[m
+[32m+[m[32mcat lorem[m
+[32m+[m[32mcat lorem |num[m
+[32m+[m[32mcat lorem |num |num |num |num |num[m
+[32m+[m[32mlsfd -1[m
+[32m+[m[32mcat script[m
+[32m+[m[32msh <script[m
+[1mdiff --git a/grade-lab5 b/grade-lab5[m
+[1mnew file mode 100755[m
+[1mindex 0000000..f9d329e[m
+[1m--- /dev/null[m
+[1m+++ b/grade-lab5[m
+[36m@@ -0,0 +1,112 @@[m
+[32m+[m[32m#!/usr/bin/env python[m
+[32m+[m
+[32m+[m[32mfrom gradelib import *[m
+[32m+[m
+[32m+[m[32mr = Runner(save("jos.out"),[m
+[32m+[m[32m           stop_breakpoint("readline"))[m
+[32m+[m
+[32m+[m[32mdef matchtest(parent, name, *args, **kw):[m
+[32m+[m[32m    def do_test():[m
+[32m+[m[32m        r.match(*args, **kw)[m
+[32m+[m[32m    test(5, name, parent=parent)(do_test)[m
+[32m+[m
+[32m+[m[32m@test(5, "internal FS tests [fs/test.c]")[m
+[32m+[m[32mdef test_fs():[m
+[32m+[m[32m    r.user_test("hello")[m
+[32m+[m[32mmatchtest(test_fs, "fs i/o",[m
+[32m+[m[32m          "FS can do I/O")[m
+[32m+[m[32mmatchtest(test_fs, "check_bc",[m
+[32m+[m[32m          "block cache is good")[m
+[32m+[m[32mmatchtest(test_fs, "check_super",[m
+[32m+[m[32m          "superblock is good")[m
+[32m+[m[32mmatchtest(test_fs, "check_bitmap",[m
+[32m+[m[32m          "bitmap is good")[m
+[32m+[m[32mmatchtest(test_fs, "alloc_block",[m
+[32m+[m[32m          "alloc_block is good")[m
+[32m+[m[32mmatchtest(test_fs, "file_open",[m
+[32m+[m[32m          "file_open is good")[m
+[32m+[m[32mmatchtest(test_fs, "file_get_block",[m
+[32m+[m[32m          "file_get_block is good")[m
+[32m+[m[32mmatchtest(test_fs, "file_flush/file_truncate/file rewrite",[m
+[32m+[m[32m          "file_flush is good",[m
+[32m+[m[32m          "file_truncate is good",[m
+[32m+[m[32m          "file rewrite is good")[m
+[32m+[m
+[32m+[m[32m@test(10, "testfile")[m
+[32m+[m[32mdef test_testfile():[m
+[32m+[m[32m    r.user_test("testfile")[m
+[32m+[m[32mmatchtest(test_testfile, "serve_open/file_stat/file_close",[m
+[32m+[m[32m          "serve_open is good",[m
+[32m+[m[32m          "file_stat is good",[m
+[32m+[m[32m          "file_close is good",[m
+[32m+[m[32m          "stale fileid is good")[m
+[32m+[m[32mmatchtest(test_testfile, "file_read",[m
+[32m+[m[32m          "file_read is good")[m
+[32m+[m[32mmatchtest(test_testfile, "file_write",[m
+[32m+[m[32m          "file_write is good")[m
+[32m+[m[32mmatchtest(test_testfile, "file_read after file_write",[m
+[32m+[m[32m          "file_read after file_write is good")[m
+[32m+[m[32mmatchtest(test_testfile, "open",[m
+[32m+[m[32m          "open is good")[m
+[32m+[m[32mmatchtest(test_testfile, "large file",[m
+[32m+[m[32m          "large file is good")[m
+[32m+[m
+[32m+[m[32m@test(10, "spawn via spawnhello")[m
+[32m+[m[32mdef test_spawn():[m
+[32m+[m[32m    r.user_test("spawnhello")[m
+[32m+[m[32m    r.match('i am parent environment 00001001',[m
+[32m+[m[32m            'hello, world',[m
+[32m+[m[32m            'i am environment 00001002',[m
+[32m+[m[32m            'No runnable environments in the system!')[m
+[32m+[m
+[32m+[m[32m@test(5, "Protection I/O space")[m
+[32m+[m[32mdef test_faultio():[m
+[32m+[m[32m    r.user_test("spawnfaultio")[m
+[32m+[m[32m    r.match('TRAP')[m
+[32m+[m
+[32m+[m[32m@test(10, "PTE_SHARE [testpteshare]")[m
+[32m+[m[32mdef test_pte_share():[m
+[32m+[m[32m    r.user_test("testpteshare")[m
+[32m+[m[32m    r.match('fork handles PTE_SHARE right',[m
+[32m+[m[32m            'spawn handles PTE_SHARE right')[m
+[32m+[m
+[32m+[m[32m@test(5, "PTE_SHARE [testfdsharing]")[m
+[32m+[m[32mdef test_fd_share():[m
+[32m+[m[32m    r.user_test("testfdsharing")[m
+[32m+[m[32m    r.match('read in child succeeded',[m
+[32m+[m[32m            'read in parent succeeded')[m
+[32m+[m
+[32m+[m[32m@test(10, "start the shell [icode]")[m
+[32m+[m[32mdef test_icode():[m
+[32m+[m[32m    r.user_test("icode")[m
+[32m+[m[32m    r.match('icode: read /motd',[m
+[32m+[m[32m            'This is /motd, the message of the day.',[m
+[32m+[m[32m            'icode: spawn /init',[m
+[32m+[m[32m            'init: running',[m
+[32m+[m[32m            'init: data seems okay',[m
+[32m+[m[32m            'icode: exiting',[m
+[32m+[m[32m            'init: bss seems okay',[m
+[32m+[m[32m            "init: args: 'init' 'initarg1' 'initarg2'",[m
+[32m+[m[32m            'init: running sh',[m
+[32m+[m[32m            '\$ ')[m
+[32m+[m
+[32m+[m[32m@test(15)[m
+[32m+[m[32mdef test_testshell():[m
+[32m+[m[32m    r.user_test("testshell", timeout=60)[m
+[32m+[m[32m    r.match("shell ran correctly")[m
+[32m+[m
+[32m+[m[32mdef gen_primes(n):[m
+[32m+[m[32m    rest = range(2, n)[m
+[32m+[m[32m    while rest:[m
+[32m+[m[32m        yield rest[0][m
+[32m+[m[32m        rest = [n for n in rest if n % rest[0]][m
+[32m+[m
+[32m+[m[32m@test(10)[m
+[32m+[m[32mdef test_primespipe():[m
+[32m+[m[32m    r.user_test("primespipe", stop_on_line("[0-9]{4}$"), timeout=120)[m
+[32m+[m[32m    primes = set(gen_primes(1000))[m
+[32m+[m[32m    nonprimes = set(range(1000)) - primes[m
+[32m+[m[32m    r.match(no=["%d$" % np for np in nonprimes],[m
+[32m+[m[32m            *["%d$" % p for p in primes])[m
+[32m+[m
+[32m+[m[32mrun_tests()[m
+[1mdiff --git a/inc/args.h b/inc/args.h[m
+[1mnew file mode 100644[m
+[1mindex 0000000..2bd5171[m
+[1m--- /dev/null[m
+[1m+++ b/inc/args.h[m
+[36m@@ -0,0 +1,82 @@[m
+[32m+[m[32m#ifndef JOS_INC_ARGS_H[m
+[32m+[m[32m#define JOS_INC_ARGS_H[m
+[32m+[m
+[32m+[m[32mstruct Argstate;[m
+[32m+[m
+[32m+[m[32m// JOS command-line parsing functions.[m
+[32m+[m
+[32m+[m[32m// Initializes the Argstate buffer from argc and argv.[m
+[32m+[m[32m// (Note: it is safe to use a 'const char **' for argv.)[m
+[32m+[m[32mvoid argstart(int *argc, char **argv, struct Argstate *args);[m
+[32m+[m
+[32m+[m[32m// Returns the next flag in the argument list,[m
+[32m+[m[32m// or -1 if there are no more flags.[m
+[32m+[m[32m//[m
+[32m+[m[32m// Flags stop at a non-flag (anything that doesn't start with '-'),[m
+[32m+[m[32m// at the end of the argument list, before "-", or after "--",[m
+[32m+[m[32m// whichever comes first.  Any "--" argument is not returned.[m
+[32m+[m[32m//[m
+[32m+[m[32m// Consumes arguments from the argc/argv array passed in to argstart.[m
+[32m+[m[32m// If you argstart with an argc/argv array of ["sh", "-i", "foo"],[m
+[32m+[m[32m// the first call to argnext will return 'i' and change the array to[m
+[32m+[m[32m// ["sh", "foo"].  Thus, when argnext returns -1, the argc/argv array[m
+[32m+[m[32m// contains just the non-flag arguments.[m
+[32m+[m[32mint argnext(struct Argstate *);[m
+[32m+[m
+[32m+[m[32m// Returns the next value for the current flag, or 0 if it has no value.[m
+[32m+[m[32m// For example, given an argument list ["-fval1", "val2", "val3"],[m
+[32m+[m[32m// a call to argnext() will return 'f', after which repeated calls to[m
+[32m+[m[32m// argnextvalue will return "val1", "val2", and "val3".[m
+[32m+[m[32m// Consumes arguments from the argc/argv array.[m
+[32m+[m[32mchar *argnextvalue(struct Argstate *);[m
+[32m+[m
+[32m+[m[32m// Returns the current flag's value, or 0 if it has no value.[m
+[32m+[m[32m// Behaves like argnextvalue, except that repeated calls to argvalue will[m
+[32m+[m[32m// return the same value.[m
+[32m+[m[32mchar *argvalue(struct Argstate *);[m
+[32m+[m
+[32m+[m[32m// Example:[m
+[32m+[m[32m//[m
+[32m+[m[32m//	#include <inc/lib.h>[m
+[32m+[m[32m//[m
+[32m+[m[32m//	void[m
+[32m+[m[32m//	umain(int argc, char **argv)[m
+[32m+[m[32m//	{[m
+[32m+[m[32m//		int i;[m
+[32m+[m[32m//		struct Argstate args;[m
+[32m+[m[32m//[m
+[32m+[m[32m//		argstart(&argc, argv, &args);[m
+[32m+[m[32m//		while ((i = argnext(&args)) >= 0)[m
+[32m+[m[32m//			switch (i) {[m
+[32m+[m[32m//			case 'r':[m
+[32m+[m[32m//			case 'x':[m
+[32m+[m[32m//				cprintf("'-%c' flag\n", i);[m
+[32m+[m[32m//				break;[m
+[32m+[m[32m//			case 'f':[m
+[32m+[m[32m//				cprintf("'-f %s' flag\n", argvalue(&args));[m
+[32m+[m[32m//				break;[m
+[32m+[m[32m//			default:[m
+[32m+[m[32m//				cprintf("unknown flag\n");[m
+[32m+[m[32m//			}[m
+[32m+[m[32m//[m
+[32m+[m[32m//		for (i = 1; i < argc; i++)[m
+[32m+[m[32m//			cprintf("argument '%s'\n", argv[i]);[m
+[32m+[m[32m//	}[m
+[32m+[m[32m//[m
+[32m+[m[32m// If this program is run with the arguments[m
+[32m+[m[32m// ["-rx", "-f", "foo", "--", "-r", "duh"][m
+[32m+[m[32m// it will print out[m
+[32m+[m[32m//	'-r' flag[m
+[32m+[m[32m//	'-x' flag[m
+[32m+[m[32m//	'-f foo' flag[m
+[32m+[m[32m//	argument '-r'[m
+[32m+[m[32m//	argument 'duh'[m
+[32m+[m
+[32m+[m[32mstruct Argstate {[m
+[32m+[m	[32m
